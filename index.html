@@ -26,8 +26,8 @@
              muted
              playsinline
              preload="auto">
-        <source src="/showcase-video" type="video/mp4">
-        <source src="/watermark-removed-i_have_given_you_the_vedio_ju.mp4" type="video/mp4">
+        <source src="watermark-removed-i_have_given_you_the_vedio_ju.mp4" type="video/mp4">
+        <source src="showcase-video" type="video/mp4">
       </video>
 
       <button class="skip-intro-btn" id="skipIntroBtn" onclick="dismissVideoIntro()" aria-label="Skip intro video">
@@ -695,7 +695,25 @@
       if (introVideo) {
         document.body.style.overflow = 'hidden';
         introVideo.muted = true;
+        introVideo.defaultMuted = true;
+        introVideo.playsInline = true;
         introVideo.playbackRate = 2.0;
+
+        const startPlayback = () => {
+          introVideo.playbackRate = 2.0;
+          const promise = introVideo.play();
+          if (promise !== undefined) {
+            promise.catch(() => {
+              // If browser blocks autoplay, play on first user interaction
+              const forcePlay = () => {
+                introVideo.playbackRate = 2.0;
+                introVideo.play().catch(dismissVideoIntro);
+              };
+              document.addEventListener('click', forcePlay, { once: true });
+              document.addEventListener('touchstart', forcePlay, { once: true });
+            });
+          }
+        };
 
         introVideo.addEventListener('play', () => { introVideo.playbackRate = 2.0; });
         introVideo.addEventListener('ratechange', () => {
@@ -703,12 +721,7 @@
         });
         introVideo.addEventListener('ended', dismissVideoIntro);
 
-        introVideo.play().catch(() => {
-          document.addEventListener('click', () => {
-            introVideo.playbackRate = 2.0;
-            introVideo.play().catch(dismissVideoIntro);
-          }, { once: true });
-        });
+        startPlayback();
       }
     });
   </script>
