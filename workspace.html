@@ -1,0 +1,714 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="ResearchAI Workspace — AI-powered academic document editor with semantic analysis, citation management, and intelligent writing assistance.">
+  <title>ResearchAI Workspace — AI Research Editor</title>
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Space+Grotesk:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <!-- Export Libraries -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.6.0/jspdf.plugin.autotable.min.js" defer></script>
+
+  <link rel="stylesheet" href="/static/css/styles.css">
+  <link rel="stylesheet" href="/static/css/workspace.css">
+</head>
+
+<body>
+<div class="workspace-shell">
+
+  <!-- ══════════════════════════════════════════════════════════
+       WORKSPACE HEADER
+  ═══════════════════════════════════════════════════════════ -->
+  <header class="ws-header" role="banner">
+
+    <a href="/" class="ws-logo" aria-label="ResearchAI Home">
+      <div class="ws-logo-icon" aria-hidden="true">⚛</div>
+      <span class="ws-logo-text">Research<span>AI</span></span>
+    </a>
+
+    <div class="ws-divider" aria-hidden="true"></div>
+
+    <div class="ws-doc-name"
+         id="docName"
+         contenteditable="true"
+         spellcheck="false"
+         aria-label="Document title"
+         role="textbox"
+         aria-multiline="false">Untitled Research Paper</div>
+
+    <div class="ws-autosave" id="autosaveStatus" style="margin-left:var(--space-2);" aria-live="polite">
+      <div class="ws-autosave-dot"></div>
+      <span>Saved</span>
+    </div>
+
+    <div class="ws-header-actions">
+      <div class="ws-status" role="status" aria-live="polite">
+        <div class="ws-status-dot loading" id="wsStatusDot"></div>
+        <span id="wsStatusText">Connecting…</span>
+      </div>
+
+      <select id="formatSelect" class="tb-select" aria-label="Citation format" style="min-width:80px;">
+        <option value="ieee">IEEE</option>
+        <option value="apa">APA</option>
+        <option value="mla">MLA</option>
+        <option value="nature">Nature</option>
+        <option value="acm">ACM</option>
+        <option value="chicago">Chicago</option>
+      </select>
+
+      <button class="btn btn-ghost btn-sm" id="saveBtn" onclick="APP.saveVersion()" aria-label="Save version">
+        💾 Save
+      </button>
+
+      <button class="btn btn-primary btn-sm" onclick="APP.generatePaper()" id="generateBtn" disabled aria-label="Generate AI paper">
+        ✨ Generate
+      </button>
+    </div>
+  </header>
+
+  <!-- ══════════════════════════════════════════════════════════
+       LEFT SIDEBAR
+  ═══════════════════════════════════════════════════════════ -->
+  <aside class="ws-left" aria-label="Document navigation and tools" role="complementary">
+
+    <div class="ws-left-tabs" role="tablist" aria-label="Sidebar panels">
+      <button class="ws-tab active" role="tab" aria-selected="true" data-panel="structure"
+              onclick="APP.switchLeftTab(this)" title="Research Structure" id="tab-structure">Structure</button>
+      <button class="ws-tab" role="tab" aria-selected="false" data-panel="refs"
+              onclick="APP.switchLeftTab(this)" title="References" id="tab-refs">Refs</button>
+      <button class="ws-tab" role="tab" aria-selected="false" data-panel="versions"
+              onclick="APP.switchLeftTab(this)" title="Versions" id="tab-versions">History</button>
+    </div>
+
+    <div class="ws-left-content">
+
+      <!-- ── Structure Panel ───────────────────────────────── -->
+      <div class="ws-panel active" id="panel-structure" role="tabpanel" aria-labelledby="tab-structure">
+
+        <div class="panel-section">
+          <div class="panel-section-title">
+            Research Structure
+            <span style="font-size:10px;color:var(--col-text-xlight);font-weight:400;" id="structureCompletion"></span>
+          </div>
+          <div id="structureTree" role="tree" aria-label="Research document structure tree">
+            <!-- Empty state -->
+            <div id="structureEmpty" style="padding:var(--space-4);text-align:center;">
+              <div style="width:44px;height:44px;background:var(--col-bg-2);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:20px;margin:0 auto var(--space-3);">🗂</div>
+              <div style="font-size:12px;font-weight:600;color:var(--col-text-muted);margin-bottom:4px;">No structure yet</div>
+              <div style="font-size:11px;color:var(--col-text-light);line-height:1.5;">Upload a document or start writing to build the research structure tree.</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Upload zone -->
+        <div class="panel-section">
+          <div class="panel-section-title">Upload Files</div>
+          <div class="upload-zone" id="sidebarUploadZone" role="button"
+               aria-label="Upload research files — click or drag and drop"
+               style="padding:var(--space-5);text-align:center;">
+            <input type="file" id="sidebarFileInput" multiple
+                   accept=".pdf,.txt,.docx,.md,.rtf"
+                   style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;"
+                   aria-label="Choose research files to upload">
+            <div style="font-size:28px;margin-bottom:8px;" aria-hidden="true">📁</div>
+            <div class="upload-text" style="font-size:12px;">
+              <strong>Drop files here</strong><br>
+              <span style="color:var(--col-text-light);">PDF, DOCX, TXT, MD</span>
+            </div>
+          </div>
+          <div id="uploadedFiles" style="margin-top:var(--space-3);" role="list" aria-label="Uploaded files"></div>
+        </div>
+
+        <!-- AI Actions -->
+        <div class="panel-section">
+          <div class="panel-section-title">AI Actions</div>
+          <div class="ai-actions-grid">
+            <button class="ai-action-btn" onclick="APP.runStructureAnalysis()" id="analyzeBtn" disabled
+                    aria-label="Analyze document structure">
+              <span class="ai-action-btn-icon" aria-hidden="true">🔍</span>
+              Analyze Structure
+            </button>
+            <button class="ai-action-btn" onclick="APP.restructureDocument()" id="restructureBtn" disabled
+                    aria-label="Smart restructure document">
+              <span class="ai-action-btn-icon" aria-hidden="true">🧩</span>
+              Smart Restructure
+            </button>
+            <button class="ai-action-btn" onclick="APP.scoreDocument()"
+                    aria-label="Run quality score analysis">
+              <span class="ai-action-btn-icon" aria-hidden="true">📊</span>
+              Quality Score
+            </button>
+          </div>
+        </div>
+
+      </div><!-- /#panel-structure -->
+
+      <!-- ── References Panel ──────────────────────────────── -->
+      <div class="ws-panel" id="panel-refs" role="tabpanel" aria-labelledby="tab-refs">
+
+        <div class="panel-section">
+          <div class="panel-section-title">Detected References</div>
+          <div id="refsList" aria-label="Detected references list">
+            <div id="refsEmpty" style="padding:var(--space-4);text-align:center;">
+              <div style="font-size:28px;margin-bottom:var(--space-2);" aria-hidden="true">📚</div>
+              <div style="font-size:12px;color:var(--col-text-muted);">No references detected yet.</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel-section">
+          <div class="panel-section-title">Citation Format Converter</div>
+          <div class="ai-actions-grid">
+            <button class="ai-action-btn" onclick="APP.convertCitations('apa-ieee')" aria-label="Convert APA to IEEE citations">
+              <span class="ai-action-btn-icon" aria-hidden="true">🔄</span>
+              APA → IEEE
+            </button>
+            <button class="ai-action-btn" onclick="APP.convertCitations('ieee-apa')" aria-label="Convert IEEE to APA citations">
+              <span class="ai-action-btn-icon" aria-hidden="true">🔄</span>
+              IEEE → APA
+            </button>
+            <button class="ai-action-btn" onclick="APP.convertCitations('apa-nature')" aria-label="Convert APA to Nature citations">
+              <span class="ai-action-btn-icon" aria-hidden="true">🔄</span>
+              APA → Nature
+            </button>
+          </div>
+        </div>
+
+      </div><!-- /#panel-refs -->
+
+      <!-- ── Versions Panel ────────────────────────────────── -->
+      <div class="ws-panel" id="panel-versions" role="tabpanel" aria-labelledby="tab-versions">
+
+        <div class="panel-section">
+          <div class="panel-section-title">Version History</div>
+          <div id="versionsList" role="list" aria-label="Document versions">
+            <div id="versionsEmpty" style="padding:var(--space-4);text-align:center;">
+              <div style="font-size:28px;margin-bottom:var(--space-2);" aria-hidden="true">🕒</div>
+              <div style="font-size:12px;color:var(--col-text-muted);">No saved versions yet.</div>
+            </div>
+          </div>
+        </div>
+
+        <button class="btn btn-secondary btn-sm btn-full" onclick="APP.saveVersion()"
+                style="margin-top:var(--space-2);" aria-label="Save current version">
+          💾 Save Current Version
+        </button>
+
+      </div><!-- /#panel-versions -->
+
+    </div><!-- /.ws-left-content -->
+  </aside>
+
+  <!-- ══════════════════════════════════════════════════════════
+       MAIN EDITOR
+  ═══════════════════════════════════════════════════════════ -->
+  <div class="ws-editor" role="main">
+
+    <!-- ── Formatting Toolbar ──────────────────────────────── -->
+    <div class="editor-toolbar" role="toolbar" aria-label="Text formatting toolbar">
+
+      <!-- Text styles -->
+      <div class="toolbar-group" role="group" aria-label="Text formatting">
+        <button class="tb-btn" onclick="EDITOR.format('bold')"
+                title="Bold (Ctrl+B)" id="tb-bold" aria-label="Bold"><b>B</b></button>
+        <button class="tb-btn" onclick="EDITOR.format('italic')"
+                title="Italic (Ctrl+I)" id="tb-italic" aria-label="Italic"><i>I</i></button>
+        <button class="tb-btn" onclick="EDITOR.format('underline')"
+                title="Underline (Ctrl+U)" id="tb-underline" aria-label="Underline"><u>U</u></button>
+        <button class="tb-btn" onclick="EDITOR.format('strikeThrough')"
+                title="Strikethrough" id="tb-strike" aria-label="Strikethrough"><s>S</s></button>
+      </div>
+
+      <div class="toolbar-sep" aria-hidden="true"></div>
+
+      <!-- Headings -->
+      <div class="toolbar-group" role="group" aria-label="Heading level">
+        <select class="tb-select" id="headingSelect" onchange="EDITOR.setHeading(this.value)"
+                aria-label="Heading level" style="min-width:100px;">
+          <option value="">Paragraph</option>
+          <option value="h1">Title</option>
+          <option value="h2">Heading 1</option>
+          <option value="h3">Heading 2</option>
+        </select>
+      </div>
+
+      <div class="toolbar-sep" aria-hidden="true"></div>
+
+      <!-- Alignment -->
+      <div class="toolbar-group" role="group" aria-label="Text alignment">
+        <button class="tb-btn" onclick="EDITOR.format('justifyLeft')"   title="Align Left"   id="tb-left"    aria-label="Align left">⬅</button>
+        <button class="tb-btn" onclick="EDITOR.format('justifyCenter')" title="Center"        id="tb-center"  aria-label="Center">≡</button>
+        <button class="tb-btn" onclick="EDITOR.format('justifyRight')"  title="Align Right"   id="tb-right"   aria-label="Align right">➡</button>
+        <button class="tb-btn" onclick="EDITOR.format('justifyFull')"   title="Justify"       id="tb-justify" aria-label="Justify">▤</button>
+      </div>
+
+      <div class="toolbar-sep" aria-hidden="true"></div>
+
+      <!-- Lists -->
+      <div class="toolbar-group" role="group" aria-label="Lists">
+        <button class="tb-btn" onclick="EDITOR.format('insertUnorderedList')" title="Bullet List"   aria-label="Bullet list">• ≡</button>
+        <button class="tb-btn" onclick="EDITOR.format('insertOrderedList')"   title="Numbered List" aria-label="Numbered list">1 ≡</button>
+        <button class="tb-btn" onclick="EDITOR.increaseIndent()"              title="Indent"        aria-label="Indent">→</button>
+        <button class="tb-btn" onclick="EDITOR.decreaseIndent()"              title="Outdent"       aria-label="Outdent">←</button>
+      </div>
+
+      <div class="toolbar-sep" aria-hidden="true"></div>
+
+      <!-- Insert -->
+      <div class="toolbar-group" role="group" aria-label="Insert elements">
+        <button class="tb-btn" onclick="EDITOR.insertTable()"     title="Insert Table"    aria-label="Insert table"    style="font-size:11px;">⊞ Table</button>
+        <button class="tb-btn" onclick="EDITOR.insertImage()"     title="Insert Image"    aria-label="Insert image"    style="font-size:11px;">🖼 Image</button>
+        <button class="tb-btn" onclick="EDITOR.insertEquation()"  title="Insert Equation" aria-label="Insert equation" style="font-size:11px;">∑ Eq</button>
+        <button class="tb-btn" onclick="EDITOR.insertCodeBlock()" title="Code Block"      aria-label="Code block"      style="font-size:11px;">&lt;/&gt;</button>
+      </div>
+
+      <div class="toolbar-sep" aria-hidden="true"></div>
+
+      <!-- Highlight & Clear -->
+      <div class="toolbar-group" role="group" aria-label="Formatting utilities">
+        <button class="tb-btn" onclick="EDITOR.toggleHighlight()" title="Highlight" aria-label="Highlight" style="background:rgba(245,158,11,0.1);">🖊</button>
+        <button class="tb-btn" onclick="EDITOR.removeFormatting()" title="Clear Formatting" aria-label="Clear formatting">✕</button>
+      </div>
+
+      <div class="toolbar-sep" aria-hidden="true"></div>
+
+      <!-- Find -->
+      <div class="toolbar-group">
+        <button class="tb-btn" onclick="EDITOR.toggleFindBar()" title="Find &amp; Replace (Ctrl+F)" aria-label="Find and replace" style="font-size:11px;">🔍 Find</button>
+      </div>
+
+      <!-- Spacer -->
+      <div style="flex:1;" aria-hidden="true"></div>
+
+      <!-- Undo/Redo -->
+      <div class="toolbar-group" role="group" aria-label="Undo and redo">
+        <button class="tb-btn" onclick="EDITOR.undo()" title="Undo (Ctrl+Z)" aria-label="Undo">↩</button>
+        <button class="tb-btn" onclick="EDITOR.redo()" title="Redo (Ctrl+Y)" aria-label="Redo">↪</button>
+      </div>
+
+      <div class="toolbar-sep" aria-hidden="true"></div>
+
+      <!-- Word count -->
+      <div style="font-size:11px;color:var(--col-text-muted);white-space:nowrap;padding:0 var(--space-2);" aria-live="polite">
+        <span id="wordCount" aria-label="Word count">0</span> words
+      </div>
+    </div>
+
+    <!-- ── Find & Replace Bar ─────────────────────────────── -->
+    <div class="find-bar hidden" id="findBar" role="search" aria-label="Find and replace">
+      <input type="text" id="findInput"    placeholder="Find…"    class="input" style="max-width:180px;" aria-label="Search text">
+      <input type="text" id="replaceInput" placeholder="Replace…" class="input" style="max-width:180px;" aria-label="Replace text">
+      <button class="btn btn-ghost btn-sm" onclick="EDITOR.findNext()" aria-label="Find next">↓ Next</button>
+      <button class="btn btn-ghost btn-sm" onclick="EDITOR.findPrev()" aria-label="Find previous">↑ Prev</button>
+      <button class="btn btn-ghost btn-sm" onclick="EDITOR.replaceOne()" aria-label="Replace one">Replace</button>
+      <button class="btn btn-ghost btn-sm" onclick="EDITOR.replaceAll()" aria-label="Replace all">Replace All</button>
+      <span class="find-count" id="findCount" aria-live="polite"></span>
+      <button class="btn btn-ghost btn-sm" onclick="EDITOR.closeFindBar()" aria-label="Close search">✕</button>
+    </div>
+
+    <!-- ── Paper Canvas ────────────────────────────────────── -->
+    <div class="editor-canvas" id="editorCanvas" role="document" aria-label="Document canvas">
+      <div class="page" id="page1" role="region" aria-label="Document page 1">
+
+        <div class="page-header" aria-hidden="true">
+          <span id="headerLeft" style="font-style:italic;">ResearchAI Workspace</span>
+          <span id="headerRight"></span>
+        </div>
+
+        <div class="editor-content"
+             id="editorContent"
+             contenteditable="true"
+             spellcheck="true"
+             aria-label="Document editor — write your research paper here"
+             aria-multiline="true"
+             role="textbox"
+             data-placeholder="Start writing your research paper, or upload a document to begin…">
+          <!-- Content loaded by JS -->
+        </div>
+
+        <div class="page-footer" aria-hidden="true">
+          <span id="footerLeft"></span>
+          <span class="page-number" id="footerCenter">Page 1</span>
+          <span id="footerRight" style="font-size:10px;color:var(--col-text-light);">ResearchAI</span>
+        </div>
+      </div>
+      <!-- Additional pages added dynamically by JS -->
+    </div>
+
+    <!-- ── AI Selection Popover ───────────────────────────── -->
+    <div class="ai-popover hidden" id="aiPopover" role="menu" aria-label="AI text actions">
+      <button class="ai-popover-btn" onclick="APP.aiAction('rewrite_academic')"    role="menuitem">✍️ Rewrite Academically</button>
+      <button class="ai-popover-btn" onclick="APP.aiAction('improve_clarity')"     role="menuitem">💡 Improve Clarity</button>
+      <button class="ai-popover-btn" onclick="APP.aiAction('expand')"              role="menuitem">📈 Expand Section</button>
+      <button class="ai-popover-btn" onclick="APP.aiAction('compress')"            role="menuitem">📉 Compress</button>
+      <button class="ai-popover-btn" onclick="APP.aiAction('generate_citations')"  role="menuitem">📚 Add Citations</button>
+      <button class="ai-popover-btn" onclick="APP.aiAction('reduce_plagiarism')"   role="menuitem">🛡️ Reduce Similarity</button>
+      <button class="ai-popover-btn" onclick="APP.aiAction('improve_grammar')"     role="menuitem">✅ Fix Grammar</button>
+      <button class="ai-popover-btn" onclick="APP.aiAction('improve_flow')"        role="menuitem">🌊 Improve Flow</button>
+      <button class="ai-popover-btn" onclick="APP.aiAction('explain')"             role="menuitem">❓ Explain This</button>
+      <button class="ai-popover-btn" onclick="APP.aiAction('detect_missing')"      role="menuitem">🔍 Detect Gaps</button>
+      <button class="ai-popover-btn" onclick="APP.aiAction('suggest_improvements')" role="menuitem">⭐ Suggest Improvements</button>
+      <div class="divider" style="margin:var(--space-2) 0;"></div>
+      <button class="ai-popover-btn" onclick="APP.closeAiPopover()" role="menuitem" style="color:var(--col-text-light);">✕ Close</button>
+    </div>
+
+  </div><!-- /.ws-editor -->
+
+  <!-- ══════════════════════════════════════════════════════════
+       RIGHT SIDEBAR
+  ═══════════════════════════════════════════════════════════ -->
+  <aside class="ws-right" aria-label="AI assistant and research analysis" role="complementary">
+
+    <div class="ws-right-tabs" role="tablist" aria-label="Right sidebar panels">
+      <button class="ws-right-tab active" role="tab" aria-selected="true"  data-rpanel="ai"
+              onclick="APP.switchRightTab(this)" id="rtab-ai">AI Chat</button>
+      <button class="ws-right-tab"        role="tab" aria-selected="false" data-rpanel="outline"
+              onclick="APP.switchRightTab(this)" id="rtab-outline">Outline</button>
+      <button class="ws-right-tab"        role="tab" aria-selected="false" data-rpanel="score"
+              onclick="APP.switchRightTab(this)" id="rtab-score">Score</button>
+      <button class="ws-right-tab"        role="tab" aria-selected="false" data-rpanel="export"
+              onclick="APP.switchRightTab(this)" id="rtab-export">Export</button>
+    </div>
+
+    <div class="ws-right-content">
+
+      <!-- ── AI Chat Panel ──────────────────────────────────── -->
+      <div class="ws-right-panel active ai-chat-panel" id="rpanel-ai" aria-labelledby="rtab-ai">
+
+        <div class="ai-chat-header">
+          <div class="ai-orb" aria-hidden="true">
+            <span class="ai-orb-icon">✦</span>
+          </div>
+          <div class="ai-chat-info">
+            <div class="ai-chat-title">AI Research Assistant</div>
+            <div class="ai-chat-sub">Ask anything about your research</div>
+          </div>
+        </div>
+
+        <!-- Quick action chips -->
+        <div class="ai-quick-actions" role="group" aria-label="Quick AI actions">
+          <button class="ai-quick-btn" onclick="APP.quickChat('Explain this section')" aria-label="Explain current section">Explain</button>
+          <button class="ai-quick-btn" onclick="APP.quickChat('Generate discussion section')" aria-label="Generate discussion">Discussion</button>
+          <button class="ai-quick-btn" onclick="APP.quickChat('Expand literature review')" aria-label="Expand literature review">Lit Review</button>
+          <button class="ai-quick-btn" onclick="APP.quickChat('Suggest academic references')" aria-label="Suggest references">References</button>
+          <button class="ai-quick-btn" onclick="APP.quickChat('Improve academic tone')" aria-label="Improve academic tone">Tone</button>
+          <button class="ai-quick-btn" onclick="APP.quickChat('Find contradictions in the paper')" aria-label="Find contradictions">Contradictions</button>
+        </div>
+
+        <!-- Messages -->
+        <div class="chat-messages" id="chatMessages" aria-live="polite" aria-label="Chat conversation">
+          <div class="chat-bubble ai" role="article" aria-label="AI message">
+            👋 Hello! I'm your AI research assistant. I can help you with writing, citations, analysis, and improving your research paper. What would you like to work on?
+          </div>
+        </div>
+
+        <!-- Input -->
+        <div class="chat-input-wrap">
+          <textarea class="chat-input"
+                    id="chatInput"
+                    rows="2"
+                    placeholder="Ask about your research…"
+                    aria-label="Chat message input"
+                    onkeydown="APP.chatKeydown(event)"></textarea>
+          <button class="btn btn-primary btn-icon" onclick="APP.sendChat()" aria-label="Send message" title="Send (Enter)">↑</button>
+        </div>
+      </div>
+
+      <!-- ── Document Outline ────────────────────────────────── -->
+      <div class="ws-right-panel" id="rpanel-outline" aria-labelledby="rtab-outline">
+        <div class="right-panel-body">
+          <div class="panel-section-title" style="margin-bottom:var(--space-3);">Document Outline</div>
+          <div id="docOutline" aria-label="Document heading outline" role="navigation">
+            <div style="font-size:13px;color:var(--col-text-muted);text-align:center;padding:var(--space-8) var(--space-4);">
+              <div style="font-size:28px;margin-bottom:var(--space-3);" aria-hidden="true">📑</div>
+              Outline will appear as you write.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Quality Score Panel ─────────────────────────────── -->
+      <div class="ws-right-panel" id="rpanel-score" aria-labelledby="rtab-score">
+        <div class="right-panel-body">
+          <div class="quality-score-panel" id="qualityPanel">
+
+            <!-- Empty state -->
+            <div id="scoreEmptyState" style="text-align:center;padding:var(--space-8) var(--space-4);">
+              <div class="score-empty-icon" aria-hidden="true">📊</div>
+              <div style="font-size:15px;font-weight:700;font-family:var(--font-heading);color:var(--col-text);margin-bottom:var(--space-2);letter-spacing:-0.02em;">Research Quality Score</div>
+              <div style="font-size:13px;color:var(--col-text-muted);margin-bottom:var(--space-5);line-height:1.6;">Generate your paper to get a comprehensive 100-point quality analysis.</div>
+              <button class="btn btn-primary btn-sm" onclick="APP.scoreDocument()" aria-label="Analyze document quality">
+                ✨ Analyze Quality
+              </button>
+            </div>
+
+            <!-- Score content -->
+            <div id="scoreContent" class="hidden">
+              <div class="score-header">
+                <div class="score-ring" id="scoreRing" style="--score:0;" aria-label="Quality score">
+                  <div class="score-ring-value" id="scoreVal">—</div>
+                  <div class="score-ring-label">/ 100</div>
+                </div>
+                <div class="score-details">
+                  <div class="score-grade" id="scoreGrade">—</div>
+                  <div class="score-readiness" id="scoreReadiness">Analyzing…</div>
+                  <div style="margin-top:var(--space-2);" id="acceptanceChance" class="text-xs text-muted"></div>
+                </div>
+              </div>
+
+              <div style="margin-bottom:var(--space-4);" id="scoreBars"></div>
+
+              <div class="panel-section-title" style="margin-bottom:var(--space-3);">Strengths</div>
+              <ul class="feedback-list" id="strengthsList"></ul>
+
+              <div class="panel-section-title" style="margin:var(--space-5) 0 var(--space-3);">Recommendations</div>
+              <div id="recommendationsList"></div>
+
+              <button class="btn btn-ghost btn-sm btn-full" onclick="APP.scoreDocument()"
+                      style="margin-top:var(--space-4);" aria-label="Re-analyze document quality">
+                🔄 Re-analyze
+              </button>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Export Panel ──────────────────────────────────── -->
+      <div class="ws-right-panel" id="rpanel-export" aria-labelledby="rtab-export">
+        <div class="right-panel-body">
+
+          <div class="panel-section-title" style="margin-bottom:var(--space-4);">Export Document</div>
+
+          <div class="export-grid" role="group" aria-label="Export format options">
+            <button class="export-btn" onclick="EXPORT.toPDF()"      aria-label="Export as PDF">
+              <span class="export-btn-icon" aria-hidden="true">📑</span>
+              <span class="export-btn-label">PDF</span>
+              <span class="export-btn-desc">Print-ready</span>
+            </button>
+            <button class="export-btn" onclick="EXPORT.toDOCX()"     aria-label="Export as Word">
+              <span class="export-btn-icon" aria-hidden="true">📝</span>
+              <span class="export-btn-label">DOCX</span>
+              <span class="export-btn-desc">Word format</span>
+            </button>
+            <button class="export-btn" onclick="EXPORT.toMarkdown()"  aria-label="Export as Markdown">
+              <span class="export-btn-icon" aria-hidden="true">📄</span>
+              <span class="export-btn-label">Markdown</span>
+              <span class="export-btn-desc">MD format</span>
+            </button>
+            <button class="export-btn" onclick="EXPORT.toHTML()"      aria-label="Export as HTML">
+              <span class="export-btn-icon" aria-hidden="true">🌐</span>
+              <span class="export-btn-label">HTML</span>
+              <span class="export-btn-desc">Web format</span>
+            </button>
+            <button class="export-btn" onclick="EXPORT.toTXT()"       aria-label="Export as plain text">
+              <span class="export-btn-icon" aria-hidden="true">📋</span>
+              <span class="export-btn-label">TXT</span>
+              <span class="export-btn-desc">Plain text</span>
+            </button>
+            <button class="export-btn" onclick="EXPORT.toLaTeX()"     aria-label="Export as LaTeX">
+              <span class="export-btn-icon" aria-hidden="true">🔣</span>
+              <span class="export-btn-label">LaTeX</span>
+              <span class="export-btn-desc">TeX format</span>
+            </button>
+          </div>
+
+          <div class="divider"></div>
+
+          <div class="panel-section-title" style="margin-bottom:var(--space-3);">Export Options</div>
+
+          <label style="display:flex;align-items:center;gap:var(--space-2);font-size:13px;margin-bottom:var(--space-2);cursor:pointer;">
+            <input type="checkbox" id="exportTOC"    checked aria-label="Include table of contents"> Include Table of Contents
+          </label>
+          <label style="display:flex;align-items:center;gap:var(--space-2);font-size:13px;margin-bottom:var(--space-2);cursor:pointer;">
+            <input type="checkbox" id="exportRefs"   checked aria-label="Include references"> Include References
+          </label>
+          <label style="display:flex;align-items:center;gap:var(--space-2);font-size:13px;margin-bottom:var(--space-2);cursor:pointer;">
+            <input type="checkbox" id="exportPgNums" checked aria-label="Include page numbers"> Page Numbers
+          </label>
+          <label style="display:flex;align-items:center;gap:var(--space-2);font-size:13px;cursor:pointer;">
+            <input type="checkbox" id="exportHdrFtr" checked aria-label="Include headers and footers"> Headers &amp; Footers
+          </label>
+
+        </div>
+      </div>
+
+    </div><!-- /.ws-right-content -->
+  </aside>
+
+</div><!-- /.workspace-shell -->
+
+<!-- ══════════════════════════════════════════════════════════
+     LOADING OVERLAY
+═══════════════════════════════════════════════════════════ -->
+<div id="loadingOverlay" role="dialog" aria-modal="true" aria-label="Processing your research" aria-live="polite">
+  <div class="ai-core" aria-hidden="true">
+    <div class="ai-core-ring"></div>
+    <div class="ai-core-ring"></div>
+    <div class="ai-core-ring"></div>
+    <div class="ai-core-dot"></div>
+  </div>
+  <div class="loading-messages">
+    <div class="loading-title" id="loadingTitle">Processing your research…</div>
+    <div class="loading-subtitle" id="loadingMsg">Reading uploaded paper...</div>
+  </div>
+  <div class="loading-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100">
+    <div class="loading-progress-fill" id="loadingProgress"></div>
+  </div>
+</div>
+
+<!-- ── Toast ─────────────────────────────────────────────────── -->
+<div id="toast" role="status" aria-live="polite" aria-atomic="true"></div>
+
+<!-- ══════════════════════════════════════════════════════════
+     MODALS
+═══════════════════════════════════════════════════════════ -->
+
+<!-- Insert Table Modal -->
+<div class="modal-backdrop" id="tableModal" role="dialog" aria-modal="true" aria-labelledby="tableModalTitle">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 class="modal-title" id="tableModalTitle">Insert Table</h2>
+      <button class="btn btn-ghost btn-sm btn-icon" onclick="APP.closeModal('tableModal')" aria-label="Close">✕</button>
+    </div>
+    <div class="modal-body">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-4);">
+        <div>
+          <label style="font-size:13px;font-weight:600;display:block;margin-bottom:6px;" for="tableRows">Rows</label>
+          <input type="number" id="tableRows" value="3" min="1" max="20" class="input" aria-label="Number of rows">
+        </div>
+        <div>
+          <label style="font-size:13px;font-weight:600;display:block;margin-bottom:6px;" for="tableCols">Columns</label>
+          <input type="number" id="tableCols" value="3" min="1" max="10" class="input" aria-label="Number of columns">
+        </div>
+      </div>
+      <div style="margin-top:var(--space-4);">
+        <label style="font-size:13px;font-weight:600;display:block;margin-bottom:6px;" for="tableCaption">Caption (optional)</label>
+        <input type="text" id="tableCaption" class="input" placeholder="Table 1: Description…" aria-label="Table caption">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="APP.closeModal('tableModal')">Cancel</button>
+      <button class="btn btn-primary" onclick="EDITOR.confirmInsertTable()">Insert Table</button>
+    </div>
+  </div>
+</div>
+
+<!-- Equation Modal -->
+<div class="modal-backdrop" id="equationModal" role="dialog" aria-modal="true" aria-labelledby="eqModalTitle">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 class="modal-title" id="eqModalTitle">Insert Equation</h2>
+      <button class="btn btn-ghost btn-sm btn-icon" onclick="APP.closeModal('equationModal')" aria-label="Close">✕</button>
+    </div>
+    <div class="modal-body">
+      <label style="font-size:13px;font-weight:600;display:block;margin-bottom:6px;" for="equationInput">LaTeX Equation</label>
+      <textarea id="equationInput" class="input" rows="3"
+                placeholder="e.g. E = mc^2  or  \sum_{i=1}^{n} x_i"
+                style="font-family:var(--font-mono);"
+                aria-label="LaTeX equation input"></textarea>
+      <div style="margin-top:var(--space-3);padding:var(--space-3);background:var(--col-bg-2);border-radius:var(--radius);border:1px solid var(--col-border);">
+        <div style="font-size:11px;color:var(--col-text-muted);margin-bottom:6px;">Preview:</div>
+        <div id="equationPreview" style="font-family:var(--font-mono);font-size:15px;color:var(--col-text);min-height:24px;" aria-live="polite"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="APP.closeModal('equationModal')">Cancel</button>
+      <button class="btn btn-primary" onclick="EDITOR.confirmInsertEquation()">Insert Equation</button>
+    </div>
+  </div>
+</div>
+
+<!-- AI Rewrite Result Modal -->
+<div class="modal-backdrop" id="aiResultModal" role="dialog" aria-modal="true" aria-labelledby="aiResultTitle">
+  <div class="modal" style="max-width:720px;">
+    <div class="modal-header">
+      <h2 class="modal-title" id="aiResultTitle">AI Suggestion</h2>
+      <button class="btn btn-ghost btn-sm btn-icon" onclick="APP.closeModal('aiResultModal')" aria-label="Close">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="aiResultContent"
+           style="font-size:14px;line-height:1.8;white-space:pre-wrap;font-family:var(--font-ui);min-height:120px;color:var(--col-text);"
+           aria-live="polite"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="APP.closeModal('aiResultModal')">Discard</button>
+      <button class="btn btn-primary" onclick="APP.applyAiResult()">Apply to Document</button>
+    </div>
+  </div>
+</div>
+
+<!-- Save Version Modal -->
+<div class="modal-backdrop" id="saveVersionModal" role="dialog" aria-modal="true" aria-labelledby="saveVersionTitle">
+  <div class="modal" style="max-width:400px;">
+    <div class="modal-header">
+      <h2 class="modal-title" id="saveVersionTitle">Save Version</h2>
+      <button class="btn btn-ghost btn-sm btn-icon" onclick="APP.closeModal('saveVersionModal')" aria-label="Close">✕</button>
+    </div>
+    <div class="modal-body">
+      <label style="font-size:13px;font-weight:600;display:block;margin-bottom:6px;" for="versionNameInput">Version Name</label>
+      <input type="text" id="versionNameInput" class="input"
+             placeholder="e.g. Draft v2, After peer review…"
+             aria-label="Version name">
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="APP.closeModal('saveVersionModal')">Cancel</button>
+      <button class="btn btn-primary" onclick="APP.confirmSaveVersion()">Save Version</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     SCRIPTS
+═══════════════════════════════════════════════════════════ -->
+<script src="/static/js/upload.js"></script>
+<script src="/static/js/document-tree.js"></script>
+<script src="/static/js/editor.js"></script>
+<script src="/static/js/ai-assistant.js"></script>
+<script src="/static/js/export.js"></script>
+<script src="/static/js/versions.js"></script>
+<script src="/static/js/app.js"></script>
+
+<script>
+  // ── Workspace health check ──────────────────────────────
+  async function checkWsHealth() {
+    try {
+      const r = await fetch('/api/health');
+      const data = await r.json();
+      const dot  = document.getElementById('wsStatusDot');
+      const text = document.getElementById('wsStatusText');
+      if (data.status === 'ok') {
+        dot.className  = 'ws-status-dot';
+        text.textContent = data.model || 'AI Connected';
+      } else {
+        dot.className  = 'ws-status-dot error';
+        text.textContent = 'API Error';
+      }
+    } catch {
+      const dot = document.getElementById('wsStatusDot');
+      dot.className = 'ws-status-dot error';
+      document.getElementById('wsStatusText').textContent = 'Offline';
+    }
+  }
+
+  // ── Autosave indicator update ───────────────────────────
+  function updateAutosave(msg = 'Saved') {
+    const el = document.getElementById('autosaveStatus');
+    if (!el) return;
+    const span = el.querySelector('span');
+    if (span) span.textContent = msg;
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    checkWsHealth();
+  });
+</script>
+
+</body>
+</html>

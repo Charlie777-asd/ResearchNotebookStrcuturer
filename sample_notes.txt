@@ -1,0 +1,24 @@
+Hypothesis: Increasing the temperature of the reaction by 10% will double the rate of crystal formation.
+
+Procedure:
+1. We prepared 5 identical test tubes, each containing 50mL of saturated copper sulfate solution.
+2. The initial temperature of the control was kept at 20 degrees Celsius.
+3. Test tubes 2 through 5 were heated to 22, 24, 26, and 28 degrees Celsius respectively.
+4. Crystal growth was monitored and measured using a high-precision digital microscope every 10 minutes for a total duration of 120 minutes (2 hours).
+
+Parameters:
+- Solution volume: 50 mL
+- Temperatures: 20C, 22C, 24C, 26C, 28C
+- Monitoring interval: 10 minutes
+- Duration: 120 minutes
+
+Results:
+- At 20C: Crystal growth rate was 1.2 mg/min.
+- At 22C: Crystal growth rate was 1.8 mg/min.
+- At 24C: Crystal growth rate was 2.4 mg/min.
+- At 26C: Crystal growth rate was 3.2 mg/min.
+- At 28C: Crystal growth rate was 4.5 mg/min.
+The crystal growth rate more than doubled when raising the temperature from 20C to 28C.
+
+Conclusion:
+The rate of crystal growth increases exponentially with temperature. This supports the hypothesis that thermal activation accelerates the nucleation and growth of crystals in saturated solutions.
